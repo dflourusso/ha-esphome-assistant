@@ -1,0 +1,38 @@
+name: Release Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (e.g. 1.0.0)
+        required: true
+        type: string
+      release_notes:
+        description: Release notes
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-firmware:
+    name: Build Firmware
+    uses: esphome/workflows/.github/workflows/build.yml@025a1e6255610c498ed590403b7e510b69e474df # 2026.4.1
+    with:
+      files: |
+        dfltech-assistant.factory.yaml
+      esphome-version: 2026.6.2
+      combined-name: dfltech-assistant
+      release-summary: ${{ github.event.inputs.release_notes }}
+      release-url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.event.inputs.version }}
+      release-version: ${{ github.event.inputs.version }}
+
+  upload-to-release:
+    name: Upload to Release
+    uses: esphome/workflows/.github/workflows/upload-to-gh-release.yml@025a1e6255610c498ed590403b7e510b69e474df # 2026.4.1
+    needs:
+      - build-firmware
+    with:
+      version: ${{ github.event.inputs.version }}

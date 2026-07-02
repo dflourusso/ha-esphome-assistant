@@ -1,0 +1,19 @@
+packages:
+  core: !include dfltech-assistant.yaml
+
+esphome:
+  project:
+    name: dflourusso.dfltech-assistant
+    version: dev
+
+http_request:
+
+ota:
+  - platform: http_request
+    id: ota_http_request
+
+update:
+  - platform: http_request
+    name: Firmware
+    device_class: firmware
+    source: https://dflourusso.github.io/ha-esphome-assistant/firmware/manifest.json

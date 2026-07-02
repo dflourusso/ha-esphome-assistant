@@ -1,0 +1,168 @@
+substitutions:
+  device_name: dfltech-assistant
+  friendly_name: DFLTech Assistant
+  setup_ap_password: dfltech-setup
+
+  i2s_mic_bclk_pin: GPIO16
+  i2s_mic_lrclk_pin: GPIO17
+  i2s_mic_din_pin: GPIO18
+  i2s_spk_bclk_pin: GPIO4
+  i2s_spk_lrclk_pin: GPIO5
+  i2s_speaker_dout_pin: GPIO21
+  doorbell_pin: GPIO10
+  factory_reset_pin: GPIO0
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: true
+  min_version: 2026.6.0
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+
+api:
+
+wifi:
+  ap:
+    password: ${setup_ap_password}
+    ap_timeout: 0s
+
+captive_portal:
+
+i2s_audio:
+  - id: i2s_mic_bus
+    i2s_bclk_pin: ${i2s_mic_bclk_pin}
+    i2s_lrclk_pin: ${i2s_mic_lrclk_pin}
+  - id: i2s_spk_bus
+    i2s_bclk_pin: ${i2s_spk_bclk_pin}
+    i2s_lrclk_pin: ${i2s_spk_lrclk_pin}
+
+microphone:
+  - platform: i2s_audio
+    id: assistant_microphone
+    i2s_audio_id: i2s_mic_bus
+    adc_type: external
+    i2s_din_pin: ${i2s_mic_din_pin}
+    channel: left
+    sample_rate: 16000
+    bits_per_sample: 32bit
+    use_apll: true
+    correct_dc_offset: true
+
+speaker:
+  - platform: i2s_audio
+    id: assistant_speaker
+    i2s_audio_id: i2s_spk_bus
+    dac_type: external
+    i2s_dout_pin: ${i2s_speaker_dout_pin}
+    channel: mono
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    use_apll: true
+    buffer_duration: 1000ms
+
+voice_assistant:
+  id: assist
+  microphone:
+    microphone: assistant_microphone
+    channels: 0
+    gain_factor: 4
+  speaker: assistant_speaker
+  noise_suppression_level: 2
+  auto_gain: 20dBFS
+  volume_multiplier: 1.5
+  on_client_disconnected:
+    - voice_assistant.stop:
+
+button:
+  - platform: restart
+    name: Restart
+
+  - platform: safe_mode
+    name: Restart in Safe Mode
+
+  - platform: factory_reset
+    id: factory_reset_button
+    name: Factory Reset
+    entity_category: diagnostic
+
+  - platform: template
+    name: Start Conversation
+    icon: mdi:microphone
+    on_press:
+      - if:
+          condition: voice_assistant.is_running
+          then:
+            - voice_assistant.stop:
+          else:
+            - voice_assistant.start_continuous:
+
+binary_sensor:
+  - platform: status
+    name: Status
+
+  - platform: gpio
+    id: doorbell
+    name: Doorbell
+    icon: mdi:doorbell
+    device_class: occupancy
+    pin:
+      number: ${doorbell_pin}
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      - homeassistant.event:
+          event: esphome.dfltech_assistant_doorbell
+      - if:
+          condition:
+            not:
+              voice_assistant.is_running
+          then:
+            - voice_assistant.start:
+
+  - platform: gpio
+    id: boot_button
+    name: Boot Button
+    entity_category: diagnostic
+    pin:
+      number: ${factory_reset_pin}
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    on_click:
+      - min_length: 10s
+        max_length: 20s
+        then:
+          - button.press: factory_reset_button
+
+sensor:
+  - platform: wifi_signal
+    name: WiFi Signal
+    update_interval: 60s
+
+  - platform: uptime
+    name: Uptime
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+    ssid:
+      name: Connected SSID
+    mac_address:
+      name: MAC Address
