@@ -68,7 +68,19 @@ speaker:
     sample_rate: 16000
     bits_per_sample: 16bit
     use_apll: true
-    buffer_duration: 1000ms
+    buffer_duration: 500ms
+
+media_player:
+  - platform: speaker
+    name: Speaker
+    id: assistant_media_player
+    task_stack_in_psram: true
+    announcement_pipeline:
+      speaker: assistant_speaker
+      format: WAV
+      sample_rate: 16000
+      num_channels: 1
+    buffer_size: 6000
 
 voice_assistant:
   id: assist
@@ -76,10 +88,10 @@ voice_assistant:
     microphone: assistant_microphone
     channels: 0
     gain_factor: 4
-  speaker: assistant_speaker
+  media_player: assistant_media_player
   noise_suppression_level: 2
   auto_gain: 20dBFS
-  volume_multiplier: 1.5
+  volume_multiplier: 2.5
   on_client_disconnected:
     - voice_assistant.stop:
 

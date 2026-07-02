@@ -149,11 +149,25 @@ This device exposes:
 | Entity | Purpose |
 |--------|---------|
 | Voice Assistant | Streams audio to Home Assistant Assist |
+| Speaker (media player) | Plays TTS and supports `assist_satellite.announce` |
+| Assist satellite | Remote Assist control and announcements |
 | Doorbell | Physical button; fires `esphome.dfltech_assistant_doorbell` and starts Assist |
 | Start Conversation button | Starts/stops a continuous voice session |
 | Firmware update | Installs released HTTP OTA firmware |
 | Restart / Safe Mode / Factory Reset buttons | Maintenance controls |
 | WiFi Signal, Uptime, IP, SSID, MAC | Diagnostics |
+
+Test speaker output from Home Assistant:
+
+```yaml
+action: assist_satellite.announce
+target:
+  entity_id: assist_satellite.dfltech_assistant_assist_satellite
+data:
+  message: "Teste de som"
+```
+
+Or use **Developer tools → Actions → Announce on satellite** after re-flashing.
 
 For the "intelligence" layer, configure Home Assistant Assist with a pipeline that includes:
 
@@ -170,6 +184,7 @@ Use this checklist after flashing and wiring the device:
 - [ ] **Doorbell button** — `binary_sensor.doorbell` turns on; `esphome.dfltech_assistant_doorbell` event fires in HA.
 - [ ] **Assist session via doorbell** — pressing doorbell starts voice session; microphone input reaches HA.
 - [ ] **Start Conversation button** — toggles continuous Assist session from HA.
+- [ ] **Announce on satellite** — `assist_satellite.announce` plays a test message on the speaker.
 - [ ] **TTS playback** — Assist responses play through the speaker clearly.
 - [ ] **Volume** — speech is audible at normal distance; adjust `volume_multiplier` in YAML if needed.
 - [ ] **Power stability** — no reboots or brownouts when speaker plays at volume (use stable 5V for MAX98357).
