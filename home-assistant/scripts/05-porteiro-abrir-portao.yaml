@@ -1,0 +1,14 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# O alias vira entity_id: script.porteiro_abrir_portao
+# AJUSTE: troque switch.portao_garagem pelo switch que abre o portão
+alias: porteiro abrir portao
+mode: single
+description: Liga o portão, aguarda 30s e desliga (fecha automaticamente).
+sequence:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.portao_garagem
+  - delay: "00:00:30"
+  - action: switch.turn_off
+    target:
+      entity_id: switch.portao_garagem

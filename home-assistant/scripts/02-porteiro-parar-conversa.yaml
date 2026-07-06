@@ -1,0 +1,18 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# O alias vira entity_id: script.porteiro_parar_conversa
+alias: porteiro parar conversa
+mode: single
+description: Cancela conversa Assist em andamento no satellite (ex. campainha do ESP).
+sequence:
+  - if:
+      condition:
+        - condition: not
+          conditions:
+            - condition: state
+              entity_id: assist_satellite.garagem_dfltech_assistant_assist_satellite
+              state: idle
+    then:
+      - action: button.press
+        target:
+          entity_id: button.garagem_dfltech_assistant_start_conversation
+      - action: script.porteiro_aguardar_idle

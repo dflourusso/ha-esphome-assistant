@@ -1,0 +1,20 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# O alias vira entity_id: script.porteiro_aguardar_idle
+alias: porteiro aguardar idle
+mode: restart
+description: Espera o satellite ficar Idle só se ainda não estiver (max 30s).
+sequence:
+  - if:
+      condition:
+        - condition: not
+          conditions:
+            - condition: state
+              entity_id: assist_satellite.garagem_dfltech_assistant_assist_satellite
+              state: idle
+    then:
+      - wait_for_trigger:
+          - platform: state
+            entity_id: assist_satellite.garagem_dfltech_assistant_assist_satellite
+            to: idle
+        timeout: 30
+        continue_on_timeout: true

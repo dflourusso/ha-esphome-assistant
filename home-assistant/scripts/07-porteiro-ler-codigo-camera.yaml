@@ -1,0 +1,58 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# ⚙️ ID da entidade OBRIGATÓRIO: porteiro_ler_codigo_camera (→ script.porteiro_ler_codigo_camera)
+#
+# Lê código de barras/etiqueta na câmera da entrada via AI Task (ai_task.generate_data).
+# Câmera da portaria: camera.campainha_generic
+alias: porteiro ler codigo camera
+mode: single
+description: Aguarda posicionamento do pacote e lê código na câmera com IA.
+variables:
+  camera: camera.campainha_generic
+sequence:
+  - delay: "00:00:05"
+
+  - action: ai_task.generate_data
+    data:
+      task_name: porteiro ler codigo pacote
+      instructions: >-
+        Esta imagem mostra um pacote na portaria da garagem.
+        Leia o código de entrega ou código de barras impresso na etiqueta.
+        Retorne apenas letras e números do código, em MAIÚSCULAS, sem espaços.
+        Atenção: não confunda o dígito 5 com a letra S, o dígito 0 com a letra O,
+        o dígito 1 com a letra I, nem o dígito 8 com a letra B.
+        Se a etiqueta não estiver legível ou não houver código visível, deixe codigo vazio
+        e legivel como false.
+      structure:
+        codigo:
+          description: Código alfanumérico da etiqueta, maiúsculas sem espaços
+          selector:
+            text:
+        legivel:
+          description: true se o código foi lido com confiança
+          selector:
+            boolean:
+      attachments:
+        - media_content_id: "media-source://camera/{{ camera }}"
+          media_content_type: image/jpeg
+    response_variable: leitura
+    continue_on_error: true
+
+  - variables:
+      resultado:
+        codigo: >-
+          {% if leitura is defined and leitura.data is defined %}
+            {% set c = leitura.data.codigo | default('') | string | trim | upper | replace(' ', '') %}
+            {{ '' if c | lower in ['null', 'none', ''] else '' ~ c }}
+          {% else %}{% endif %}
+        legivel: >-
+          {{ leitura is defined
+             and leitura.data is defined
+             and leitura.data.legivel | default(false) | bool }}
+        encontrado: >-
+          {% if leitura is defined and leitura.data is defined %}
+            {% set c = leitura.data.codigo | default('') | string | trim | upper | replace(' ', '') %}
+            {{ c != '' and c | lower not in ['null', 'none'] }}
+          {% else %}false{% endif %}
+
+  - stop: done
+    response_variable: resultado

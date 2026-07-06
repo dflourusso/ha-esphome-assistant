@@ -1,0 +1,22 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# O alias vira entity_id: script.porteiro_notificar_morador
+# AJUSTE: troque notify.mobile_app_SEU_TELEFONE pelo seu notify real
+alias: porteiro notificar morador
+mode: parallel
+max: 10
+fields:
+  titulo:
+    name: Título
+    required: true
+    selector:
+      text:
+  mensagem:
+    name: Mensagem
+    required: true
+    selector:
+      text:
+sequence:
+  - action: notify.mobile_app_SEU_TELEFONE
+    data:
+      title: "{{ titulo }}"
+      message: "{{ mensagem }}"

@@ -1,0 +1,33 @@
+# UI: Automações → Criar automação → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# Troque o trigger pelo seu botão, cena, interruptor ou outro evento.
+alias: porteiro iniciar atendimento
+description: Inicia o porteiro virtual (saudação + conversa).
+mode: single
+triggers:
+  # --- escolha UM (ou mais) triggers e apague o restante ---
+
+  # Botão auxiliar (input_button)
+  - trigger: state
+    entity_id: input_button.SEU_BOTAO_AQUI
+    to: pressed
+
+  # Interruptor / switch
+  # - trigger: state
+  #   entity_id: switch.SEU_INTERRUPTOR_AQUI
+  #   to: "on"
+
+  # Botão de cena
+  # - trigger: event
+  #   event_type: call_service
+  #   event_data:
+  #     domain: scene
+  #     service: turn_on
+  #     service_data:
+  #       entity_id: scene.SEU_BOTAO_DE_CENA
+
+  # Campainha ESPHome (opcional — não é obrigatório)
+  # - trigger: event
+  #   event_type: esphome.dfltech_assistant_doorbell
+
+actions:
+  - action: script.porteiro_atender

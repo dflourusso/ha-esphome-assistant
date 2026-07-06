@@ -1,0 +1,432 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# O alias vira entity_id: script.porteiro_atender
+alias: porteiro atender
+mode: restart
+description: Loop recepcionista com ask_question + conversation.process.
+variables:
+  satellite: assist_satellite.garagem_dfltech_assistant_assist_satellite
+  agent: conversation.porteiro
+  max_turns: 15
+  conversation_id: ""
+  saudacao: >-
+    {% set h = now().hour %}
+    {% if h >= 5 and h < 12 %}Bom dia{% elif h >= 12 and h < 18 %}Boa tarde{% else %}Boa noite{% endif %}
+  next_question: "{{ saudacao }}. Em que posso ajudar?"
+sequence:
+  # Só age se o ESP estiver com Assist ativo (ex. campainha). Se já idle, segue na hora.
+  - action: script.porteiro_parar_conversa
+
+  - repeat:
+      count: "{{ max_turns | int }}"
+      sequence:
+        - action: script.porteiro_aguardar_idle
+
+        - action: assist_satellite.ask_question
+          data:
+            entity_id: "{{ satellite }}"
+            question: "{{ next_question }}"
+            preannounce: false
+          response_variable: user_turn
+          continue_on_error: true
+
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: >-
+                    {{ user_turn is defined
+                       and user_turn.sentence is defined
+                       and user_turn.sentence | trim != '' }}
+              sequence:
+                - choose:
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ conversation_id | trim != '' }}"
+                      sequence:
+                        - action: conversation.process
+                          data:
+                            agent_id: "{{ agent }}"
+                            text: "{{ user_turn.sentence }}"
+                            conversation_id: "{{ conversation_id }}"
+                            language: pt-BR
+                          response_variable: agent_response
+                          continue_on_error: true
+                    - conditions: []
+                      sequence:
+                        - action: conversation.process
+                          data:
+                            agent_id: "{{ agent }}"
+                            text: "{{ user_turn.sentence }}"
+                            language: pt-BR
+                          response_variable: agent_response
+                          continue_on_error: true
+
+                - choose:
+                    - conditions:
+                        - condition: template
+                          value_template: >-
+                            {{ agent_response is defined
+                               and agent_response.response is defined
+                               and agent_response.response.speech is defined
+                               and agent_response.response.speech.plain is defined }}
+                      sequence:
+                        - variables:
+                            conversation_id: "{{ agent_response.conversation_id }}"
+                            parsed: >-
+                              {% set raw = agent_response.response.speech.plain.speech | trim %}
+                              {% if raw.startswith('{') %}
+                                {{ raw | from_json }}
+                              {% else %}
+                                {{ {'fala': raw, 'tipo': 'geral', 'codigo': '', 'resumo': '', 'encerrar': false, 'metodo_codigo': ''} }}
+                              {% endif %}
+                            fala: "{{ parsed.fala | default('Desculpe, não entendi. Pode repetir?') }}"
+                            tipo: "{{ parsed.tipo | default('geral') }}"
+                            codigo: >-
+                              {% set c = parsed.codigo | default('') | string | trim %}
+                              {{ '' if c | lower in ['null', 'none', ''] else '' ~ (c | upper | replace(' ', '')) }}
+                            encerrar: >-
+                              {% set c = parsed.codigo | default('') | string | trim %}
+                              {% set has_codigo = c != '' and c | lower not in ['null', 'none'] %}
+                              {% set t = parsed.tipo | default('geral') %}
+                              {% set met = parsed.metodo_codigo | default('') | string | trim | lower %}
+                              {{ false if t == 'entrega' and (has_codigo or met == 'camera') else (parsed.encerrar | default(false) | bool) }}
+                            resumo: "{{ parsed.resumo | default('') | string | trim }}"
+                            metodo_codigo: "{{ parsed.metodo_codigo | default('') | string | trim | lower }}"
+                    - conditions: []
+                      sequence:
+                        - variables:
+                            fala: >-
+                              Desculpe, tive um problema ao falar com o agente.
+                              Pode repetir?
+                            tipo: geral
+                            codigo: ""
+                            encerrar: false
+                            resumo: ""
+                            metodo_codigo: ""
+
+                - choose:
+                            - conditions:
+                                - condition: template
+                                  value_template: "{{ tipo == 'vendedor' }}"
+                              sequence:
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: assist_satellite.announce
+                                  data:
+                                    entity_id: "{{ satellite }}"
+                                    message: "{{ fala }}"
+                                    preannounce: false
+
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: script.porteiro_parar_conversa
+
+                                - stop: vendedor_encerrado
+
+                            - conditions:
+                                - condition: template
+                                  value_template: >-
+                                    {{ encerrar
+                                       and resumo | trim != ''
+                                       and (tipo == 'visita' or tipo == 'geral'
+                                            or (tipo == 'entrega' and codigo | string | trim == '')) }}
+                              sequence:
+                                - action: script.porteiro_notificar_morador
+                                  data:
+                                    titulo: >-
+                                      {% if tipo == 'visita' %}Porteiro - visita
+                                      {% elif tipo == 'entrega' %}Porteiro - delivery
+                                      {% else %}Porteiro - garagem{% endif %}
+                                    mensagem: "{{ resumo }}"
+
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: assist_satellite.announce
+                                  data:
+                                    entity_id: "{{ satellite }}"
+                                    message: "{{ fala }}"
+                                    preannounce: false
+
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: script.porteiro_parar_conversa
+
+                                - stop: atendimento_encerrado
+
+                            - conditions:
+                                - condition: template
+                                  value_template: >-
+                                    {{ tipo == 'entrega'
+                                       and metodo_codigo == 'camera'
+                                       and codigo | string | trim == '' }}
+                              sequence:
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: assist_satellite.announce
+                                  data:
+                                    entity_id: "{{ satellite }}"
+                                    message: "{{ fala }}"
+                                    preannounce: false
+
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: script.porteiro_ler_codigo_camera
+                                  response_variable: leitura_cam
+
+                                - choose:
+                                    - conditions:
+                                        - condition: template
+                                          value_template: "{{ leitura_cam.encontrado | default(false) | bool }}"
+                                      sequence:
+                                        - action: script.porteiro_confirmar_entrega
+                                          data:
+                                            codigo: "{{ leitura_cam.codigo }}"
+                                          response_variable: confirmacao
+
+                                        - choose:
+                                            - conditions:
+                                                - condition: template
+                                                  value_template: "{{ confirmacao.concluido | default(false) | bool }}"
+                                              sequence:
+                                                - stop: entrega_concluida
+
+                                            - conditions: []
+                                              sequence:
+                                                - action: conversation.process
+                                                  data:
+                                                    agent_id: "{{ agent }}"
+                                                    text: >-
+                                                      [Sistema: li o código {{ leitura_cam.codigo }} pela câmera,
+                                                      mas não foi encontrado na lista. Peça para repetir por voz
+                                                      (metodo_codigo voz) ou tentar a câmera de novo.]
+                                                    conversation_id: "{{ conversation_id }}"
+                                                    language: pt-BR
+                                                  response_variable: agent_response
+                                                  continue_on_error: true
+
+                                                - variables:
+                                                    parsed: >-
+                                                      {% set raw = agent_response.response.speech.plain.speech | trim %}
+                                                      {% if raw.startswith('{') %}
+                                                        {{ raw | from_json }}
+                                                      {% else %}
+                                                        {{ {'fala': raw} }}
+                                                      {% endif %}
+                                                    fala: "{{ parsed.fala | default('Não encontrei esse código. Pode falar devagar ou tentar pela câmera de novo?') }}"
+                                                    resumo: "{{ parsed.resumo | default('') | string | trim }}"
+                                                    encerrar: "{{ parsed.encerrar | default(false) | bool }}"
+
+                                                - choose:
+                                                    - conditions:
+                                                        - condition: template
+                                                          value_template: >-
+                                                            {{ encerrar and resumo | trim != '' }}
+                                                      sequence:
+                                                        - action: script.porteiro_notificar_morador
+                                                          data:
+                                                            titulo: Porteiro - delivery
+                                                            mensagem: "{{ resumo }}"
+
+                                                        - action: script.porteiro_aguardar_idle
+
+                                                        - action: assist_satellite.announce
+                                                          data:
+                                                            entity_id: "{{ satellite }}"
+                                                            message: "{{ fala }}"
+                                                            preannounce: false
+
+                                                        - action: script.porteiro_aguardar_idle
+
+                                                        - action: script.porteiro_parar_conversa
+
+                                                        - stop: entrega_aviso_morador
+
+                                                    - conditions: []
+                                                      sequence:
+                                                        - variables:
+                                                            next_question: "{{ fala }}"
+
+                                    - conditions: []
+                                      sequence:
+                                        - action: conversation.process
+                                          data:
+                                            agent_id: "{{ agent }}"
+                                            text: >-
+                                              [Sistema: não consegui ler o código pela câmera.
+                                              Ofereça o entregador falar o código (metodo_codigo voz)
+                                              ou tentar posicionar o pacote de novo (metodo_codigo camera).]
+                                            conversation_id: "{{ conversation_id }}"
+                                            language: pt-BR
+                                          response_variable: agent_response
+                                          continue_on_error: true
+
+                                        - variables:
+                                            parsed: >-
+                                              {% set raw = agent_response.response.speech.plain.speech | trim %}
+                                              {% if raw.startswith('{') %}
+                                                {{ raw | from_json }}
+                                              {% else %}
+                                                {{ {'fala': raw} }}
+                                              {% endif %}
+                                            fala: "{{ parsed.fala | default('Não consegui ler o código. Pode falar devagar ou posicionar o pacote de novo?') }}"
+                                            resumo: "{{ parsed.resumo | default('') | string | trim }}"
+                                            encerrar: "{{ parsed.encerrar | default(false) | bool }}"
+
+                                        - choose:
+                                            - conditions:
+                                                - condition: template
+                                                  value_template: >-
+                                                    {{ encerrar and resumo | trim != '' }}
+                                              sequence:
+                                                - action: script.porteiro_notificar_morador
+                                                  data:
+                                                    titulo: Porteiro - delivery
+                                                    mensagem: "{{ resumo }}"
+
+                                                - action: script.porteiro_aguardar_idle
+
+                                                - action: assist_satellite.announce
+                                                  data:
+                                                    entity_id: "{{ satellite }}"
+                                                    message: "{{ fala }}"
+                                                    preannounce: false
+
+                                                - action: script.porteiro_aguardar_idle
+
+                                                - action: script.porteiro_parar_conversa
+
+                                                - stop: entrega_aviso_morador
+
+                                            - conditions: []
+                                              sequence:
+                                                - variables:
+                                                    next_question: "{{ fala }}"
+
+                            - conditions:
+                                - condition: template
+                                  value_template: >-
+                                    {{ tipo == 'entrega'
+                                       and codigo | string | trim != '' }}
+                              sequence:
+                                - action: script.porteiro_confirmar_entrega
+                                  data:
+                                    codigo: "{{ '' ~ (codigo | string | trim | upper | replace(' ', '')) }}"
+                                  response_variable: confirmacao
+
+                                - choose:
+                                    - conditions:
+                                        - condition: template
+                                          value_template: "{{ confirmacao.concluido | default(false) | bool }}"
+                                      sequence:
+                                        - stop: entrega_concluida
+
+                                    - conditions: []
+                                      sequence:
+                                        - action: conversation.process
+                                          data:
+                                            agent_id: "{{ agent }}"
+                                            text: >-
+                                              [Sistema: o código {{ codigo }} não foi encontrado.
+                                              Peça para repetir por voz (metodo_codigo voz)
+                                              ou ofereça ler pela câmera (metodo_codigo camera).]
+                                            conversation_id: "{{ conversation_id }}"
+                                            language: pt-BR
+                                          response_variable: agent_response
+                                          continue_on_error: true
+
+                                        - variables:
+                                            parsed: >-
+                                              {% set raw = agent_response.response.speech.plain.speech | trim %}
+                                              {% if raw.startswith('{') %}
+                                                {{ raw | from_json }}
+                                              {% else %}
+                                                {{ {'fala': raw} }}
+                                              {% endif %}
+                                            fala: "{{ parsed.fala | default('Não encontrei esse código. Pode repetir?') }}"
+                                            resumo: "{{ parsed.resumo | default('') | string | trim }}"
+                                            encerrar: "{{ parsed.encerrar | default(false) | bool }}"
+
+                                        - choose:
+                                            - conditions:
+                                                - condition: template
+                                                  value_template: >-
+                                                    {{ encerrar and resumo | trim != '' }}
+                                              sequence:
+                                                - action: script.porteiro_notificar_morador
+                                                  data:
+                                                    titulo: Porteiro - delivery
+                                                    mensagem: "{{ resumo }}"
+
+                                                - action: script.porteiro_aguardar_idle
+
+                                                - action: assist_satellite.announce
+                                                  data:
+                                                    entity_id: "{{ satellite }}"
+                                                    message: "{{ fala }}"
+                                                    preannounce: false
+
+                                                - action: script.porteiro_aguardar_idle
+
+                                                - action: script.porteiro_parar_conversa
+
+                                                - stop: entrega_aviso_morador
+
+                                            - conditions: []
+                                              sequence:
+                                                - variables:
+                                                    next_question: "{{ fala }}"
+
+                            - conditions:
+                                - condition: template
+                                  value_template: "{{ encerrar }}"
+                              sequence:
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: assist_satellite.announce
+                                  data:
+                                    entity_id: "{{ satellite }}"
+                                    message: "{{ fala }}"
+                                    preannounce: false
+
+                                - action: script.porteiro_aguardar_idle
+
+                                - action: script.porteiro_parar_conversa
+
+                                - stop: encerrar_atendimento
+
+                            - conditions:
+                                - condition: template
+                                  value_template: "{{ tipo == 'entrega' }}"
+                              sequence:
+                                - variables:
+                                    next_question: "{{ fala }}"
+
+                            - conditions:
+                                - condition: template
+                                  value_template: "{{ tipo == 'visita' or tipo == 'geral' }}"
+                              sequence:
+                                - variables:
+                                    next_question: "{{ fala }}"
+
+                            - conditions: []
+                              sequence:
+                                - variables:
+                                    next_question: "{{ fala }}"
+
+            - conditions: []
+              sequence:
+                - variables:
+                    next_question: "Desculpe, não ouvi. Pode repetir?"
+
+  - action: assist_satellite.ask_question
+    data:
+      entity_id: "{{ satellite }}"
+      question: "Vou avisar o morador. Por favor, aguarde."
+      preannounce: false
+    continue_on_error: true
+
+  - action: script.porteiro_notificar_morador
+    data:
+      titulo: "Porteiro - fim do atendimento"
+      mensagem: "Atendimento na garagem encerrado (tempo limite)."
+
+  - action: script.porteiro_parar_conversa

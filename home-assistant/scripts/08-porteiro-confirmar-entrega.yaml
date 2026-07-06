@@ -1,0 +1,75 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# ⚙️ ID da entidade OBRIGATÓRIO: porteiro_confirmar_entrega (→ script.porteiro_confirmar_entrega)
+alias: porteiro confirmar entrega
+mode: single
+description: Busca código na lista, notifica morador e libera entrega se encontrado.
+fields:
+  codigo:
+    name: Código (summary)
+    required: true
+    selector:
+      text:
+variables:
+  satellite: assist_satellite.garagem_dfltech_assistant_assist_satellite
+sequence:
+  - action: script.porteiro_buscar_codigo
+    data:
+      codigo: "{{ '' ~ (codigo | string | trim | upper | replace(' ', '')) }}"
+    response_variable: busca
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ busca.encontrado | bool }}"
+        sequence:
+          - action: script.porteiro_notificar_morador
+            data:
+              titulo: "Porteiro - entrega OK"
+              mensagem: >-
+                Código {{ busca.codigo }}.
+                {{ busca.descricao }}.
+
+          - variables:
+              mensagem_entregador: >-
+                {% if busca.palavra_chave | trim != '' %}
+                  Código confirmado. Pode deixar a encomenda na garagem.
+                  Vou abrir o portão agora; ele fecha automaticamente em trinta segundos.
+                  A palavra-chave é: {{ busca.palavra_chave }}.
+                {% else %}
+                  Código confirmado. Pode deixar a encomenda na garagem.
+                  Vou abrir o portão agora; ele fecha automaticamente em trinta segundos.
+                {% endif %}
+
+          - action: script.porteiro_aguardar_idle
+
+          - action: assist_satellite.announce
+            data:
+              entity_id: "{{ satellite }}"
+              message: "{{ mensagem_entregador }}"
+              preannounce: false
+
+          - action: script.porteiro_aguardar_idle
+
+          - action: script.porteiro_abrir_portao
+
+          - action: script.porteiro_parar_conversa
+
+          - variables:
+              resultado:
+                concluido: true
+                encontrado: true
+                codigo: "{{ busca.codigo }}"
+
+          - stop: done
+            response_variable: resultado
+
+      - conditions: []
+        sequence:
+          - variables:
+              resultado:
+                concluido: false
+                encontrado: false
+                codigo: "{{ codigo }}"
+
+          - stop: done
+            response_variable: resultado

@@ -1,0 +1,69 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# Alias: porteiro buscar codigo
+# ⚙️ ID da entidade OBRIGATÓRIO: porteiro_buscar_codigo (→ script.porteiro_buscar_codigo)
+#
+# O código de entrega é o summary do item em todo.entregas.
+alias: porteiro buscar codigo
+mode: single
+description: Busca summary (= código) na lista todo.entregas.
+fields:
+  codigo:
+    name: Código (summary)
+    required: true
+    selector:
+      text:
+sequence:
+  - variables:
+      # ~ '' impede o HA de guardar 123 como int
+      codigo_busca: "{{ '' ~ (codigo | string | trim | upper | replace(' ', '')) }}"
+
+  - action: todo.get_items
+    target:
+      entity_id: todo.entregas
+    response_variable: lista_entregas
+
+  - variables:
+      match_codigo: >-
+        {%- for item in lista_entregas['todo.entregas']['items'] -%}
+          {%- if (item.summary | string | trim | upper) == (codigo_busca | string | trim | upper) -%}
+            {{- '' ~ (item.summary | string | trim | upper) -}}
+          {%- endif -%}
+        {%- endfor -%}
+      match_descricao: >-
+        {%- for item in lista_entregas['todo.entregas']['items'] -%}
+          {%- if (item.summary | string | trim | upper) == (codigo_busca | string | trim | upper) -%}
+            {{- item.description | default('') -}}
+          {%- endif -%}
+        {%- endfor -%}
+      match_uid: >-
+        {%- for item in lista_entregas['todo.entregas']['items'] -%}
+          {%- if (item.summary | string | trim | upper) == (codigo_busca | string | trim | upper) -%}
+            {{- item.uid -}}
+          {%- endif -%}
+        {%- endfor -%}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ match_uid | default('') | string | trim != '' }}"
+        sequence:
+          - action: todo.update_item
+            target:
+              entity_id: todo.entregas
+            data:
+              item: "{{ match_uid | string | trim }}"
+              status: completed
+
+  - variables:
+      resultado:
+        encontrado: "{{ match_uid | default('') | string | trim != '' }}"
+        codigo: "{{ '' ~ (match_codigo | string | trim) }}"
+        descricao: "{{ match_descricao | trim }}"
+        palavra_chave: >-
+          {% set desc = match_descricao | trim %}
+          {% if 'palavra-chave:' in desc | lower %}
+            {{ desc.split('palavra-chave:')[-1].split('\n')[0] | trim }}
+          {% else %}{% endif %}
+
+  - stop: done
+    response_variable: resultado
