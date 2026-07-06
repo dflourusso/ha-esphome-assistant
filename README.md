@@ -105,6 +105,7 @@ ha-esphome-assistant/
 ├── dfltech-assistant.yaml          # Core voice assistant firmware
 ├── dfltech-assistant.factory.yaml  # Distribution build (HTTP OTA + update entity)
 ├── dfltech-assistant.dev.yaml      # Local dev overlay (Wi-Fi + ESPHome OTA)
+├── home-assistant/                 # Porteiro Garagem — scripts e automação HA (ver README lá)
 ├── secrets.template.yaml           # Template for local secrets.yaml
 ├── static/                         # GitHub Pages installer site
 └── .github/workflows/              # CI, release, and Pages deploy
@@ -174,6 +175,8 @@ For the "intelligence" layer, configure Home Assistant Assist with a pipeline th
 1. Speech-to-text.
 2. A conversation agent, such as Home Assistant's default agent or an AI-backed agent.
 3. Text-to-speech.
+
+For a full **virtual doorman** example (delivery codes, camera OCR, resident notifications), see [`home-assistant/README.md`](home-assistant/README.md).
 
 ## Hardware Test Checklist
 
