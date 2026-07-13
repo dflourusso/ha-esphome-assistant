@@ -5,12 +5,12 @@ alias: porteiro notificar morador
 mode: parallel
 max: 10
 fields:
-  titulo:
+  title:
     name: Título
     required: true
     selector:
       text:
-  mensagem:
+  message:
     name: Mensagem
     required: true
     selector:
@@ -18,5 +18,5 @@ fields:
 sequence:
   - action: notify.mobile_app_SEU_TELEFONE
     data:
-      title: "{{ titulo }}"
-      message: "{{ mensagem }}"
+      title: "{{ title }}"
+      message: "{{ message }}"

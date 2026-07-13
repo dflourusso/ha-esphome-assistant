@@ -20,39 +20,39 @@ sequence:
         Retorne apenas letras e números do código, em MAIÚSCULAS, sem espaços.
         Atenção: não confunda o dígito 5 com a letra S, o dígito 0 com a letra O,
         o dígito 1 com a letra I, nem o dígito 8 com a letra B.
-        Se a etiqueta não estiver legível ou não houver código visível, deixe codigo vazio
-        e legivel como false.
+        Se a etiqueta não estiver legível ou não houver código visível, deixe code vazio
+        e legible como false.
       structure:
-        codigo:
+        code:
           description: Código alfanumérico da etiqueta, maiúsculas sem espaços
           selector:
             text:
-        legivel:
+        legible:
           description: true se o código foi lido com confiança
           selector:
             boolean:
       attachments:
         - media_content_id: "media-source://camera/{{ camera }}"
           media_content_type: image/jpeg
-    response_variable: leitura
+    response_variable: reading
     continue_on_error: true
 
   - variables:
-      resultado:
-        codigo: >-
-          {% if leitura is defined and leitura.data is defined %}
-            {% set c = leitura.data.codigo | default('') | string | trim | upper | replace(' ', '') %}
+      result:
+        code: >-
+          {% if reading is defined and reading.data is defined %}
+            {% set c = reading.data.code | default('') | string | trim | upper | replace(' ', '') %}
             {{ '' if c | lower in ['null', 'none', ''] else '' ~ c }}
           {% else %}{% endif %}
-        legivel: >-
-          {{ leitura is defined
-             and leitura.data is defined
-             and leitura.data.legivel | default(false) | bool }}
-        encontrado: >-
-          {% if leitura is defined and leitura.data is defined %}
-            {% set c = leitura.data.codigo | default('') | string | trim | upper | replace(' ', '') %}
+        legible: >-
+          {{ reading is defined
+             and reading.data is defined
+             and reading.data.legible | default(false) | bool }}
+        found: >-
+          {% if reading is defined and reading.data is defined %}
+            {% set c = reading.data.code | default('') | string | trim | upper | replace(' ', '') %}
             {{ c != '' and c | lower not in ['null', 'none'] }}
           {% else %}false{% endif %}
 
   - stop: done
-    response_variable: resultado
+    response_variable: result

@@ -4,7 +4,7 @@ alias: porteiro confirmar entrega
 mode: single
 description: Busca código na lista, notifica morador e libera entrega se encontrado.
 fields:
-  codigo:
+  code:
     name: Código (summary)
     required: true
     selector:
@@ -14,27 +14,27 @@ variables:
 sequence:
   - action: script.porteiro_buscar_codigo
     data:
-      codigo: "{{ '' ~ (codigo | string | trim | upper | replace(' ', '')) }}"
-    response_variable: busca
+      code: "{{ '' ~ (code | string | trim | upper | replace(' ', '')) }}"
+    response_variable: search
 
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ busca.encontrado | bool }}"
+            value_template: "{{ search.found | bool }}"
         sequence:
           - action: script.porteiro_notificar_morador
             data:
-              titulo: "Porteiro - entrega OK"
-              mensagem: >-
-                Código {{ busca.codigo }}.
-                {{ busca.descricao }}.
+              title: "Porteiro - entrega OK"
+              message: >-
+                Código {{ search.code }}.
+                {{ search.description }}.
 
           - variables:
-              mensagem_entregador: >-
-                {% if busca.palavra_chave | trim != '' %}
+              courier_message: >-
+                {% if search.keyword | trim != '' %}
                   Código confirmado. Pode deixar a encomenda na garagem.
                   Vou abrir o portão agora; ele fecha automaticamente em trinta segundos.
-                  A palavra-chave é: {{ busca.palavra_chave }}.
+                  A palavra-chave é: {{ search.keyword }}.
                 {% else %}
                   Código confirmado. Pode deixar a encomenda na garagem.
                   Vou abrir o portão agora; ele fecha automaticamente em trinta segundos.
@@ -45,7 +45,7 @@ sequence:
           - action: assist_satellite.announce
             data:
               entity_id: "{{ satellite }}"
-              message: "{{ mensagem_entregador }}"
+              message: "{{ courier_message }}"
               preannounce: false
 
           - action: script.porteiro_aguardar_idle
@@ -55,21 +55,21 @@ sequence:
           - action: script.porteiro_parar_conversa
 
           - variables:
-              resultado:
-                concluido: true
-                encontrado: true
-                codigo: "{{ busca.codigo }}"
+              result:
+                completed: true
+                found: true
+                code: "{{ search.code }}"
 
           - stop: done
-            response_variable: resultado
+            response_variable: result
 
       - conditions: []
         sequence:
           - variables:
-              resultado:
-                concluido: false
-                encontrado: false
-                codigo: "{{ codigo }}"
+              result:
+                completed: false
+                found: false
+                code: "{{ code }}"
 
           - stop: done
-            response_variable: resultado
+            response_variable: result

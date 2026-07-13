@@ -8,7 +8,7 @@ Automação de recepção na garagem com **DFLTech Assistant** (voz) e agente Op
 
 1. ESPHome **dfltech-assistant** na garagem (satellite de voz).
 2. Agente de conversa **Porteiro** com **Assist desligado** — cole o texto de [`prompt-porteiro.txt`](prompt-porteiro.txt).
-3. Lista **Entregas** (`todo.entregas`): `summary` = código; na descrição use `descrição:` e `palavra-chave:`.
+3. Lista **Entregas** (`todo.entregas`): `summary` = código; na descrição use `description:` e `keyword:`.
 4. Pipeline no satellite: STT + TTS (para `assist_satellite.ask_question`).
 5. **AI Task** configurado (Settings → AI) — usado pelo script 07 para leitura pela câmera.
 
@@ -82,24 +82,24 @@ Ao iniciar, o script fala **Bom dia / Boa tarde / Boa noite** (conforme o horár
 | Decidir voz vs câmera, quando avisar o morador após 3 falhas | Agente **Porteiro** |
 | Validar código na lista, ler câmera, abrir portão, notificar push | Scripts HA |
 
-O agente responde sempre em JSON (`fala`, `tipo`, `codigo`, `metodo_codigo`, `resumo`, `encerrar`). O script 06 interpreta o JSON e executa ações — mensagens `[Sistema: ...]` informam falhas de validação sem lógica de contagem no YAML.
+O agente responde sempre em JSON (`speech`, `type`, `code`, `code_method`, `summary`, `end`). O script 06 interpreta o JSON e executa ações — mensagens `[Sistema: ...]` informam falhas de validação sem lógica de contagem no YAML.
 
 ## Tipos de atendimento
 
 | Tipo | Comportamento |
 |------|----------------|
-| **visita** | Conversa natural; coleta nome, quem visita e motivo; `resumo` + `encerrar: true` → notifica morador |
+| **visita** | Conversa natural; coleta nome, quem visita e motivo; `summary` + `end: true` → notifica morador |
 | **geral** | Prestador de serviço, técnico, etc.; avisa o morador como visita (não dispensa) |
 | **entrega — encomenda** | Pede código de entrega/rastreio (voz ou câmera); valida em `todo.entregas` |
-| **entrega — comida** | iFood, Rappi, etc.; **sem código**; `resumo` + `encerrar: true` → notifica morador |
+| **entrega — comida** | iFood, Rappi, etc.; **sem código**; `summary` + `end: true` → notifica morador |
 | **vendedor** | Propaganda/ambulante; dispensa educadamente **sem** avisar morador |
 
 ## Fluxo de entrega (encomenda com código)
 
 ### Código validado
 
-1. Agente extrai o código da fala (`metodo_codigo: voz`, campo `codigo`) **ou** aciona a câmera (`metodo_codigo: camera`).
-2. **Voz:** `codigo` no JSON → `script.porteiro_confirmar_entrega`.
+1. Agente extrai o código da fala (`code_method: voz`, campo `code`) **ou** aciona a câmera (`code_method: camera`).
+2. **Voz:** `code` no JSON → `script.porteiro_confirmar_entrega`.
 3. **Câmera:** instruções ao entregador → espera → `script.porteiro_ler_codigo_camera` (AI Task) → confirma entrega com o código lido.
 4. `script.porteiro_buscar_codigo` compara com o **summary** de cada item em `todo.entregas`.
 5. Se achar: marca concluído, notifica morador, **avisa o entregador por voz** (com palavra-chave se houver) e abre o portão.
@@ -113,7 +113,7 @@ O agente responde sempre em JSON (`fala`, `tipo`, `codigo`, `metodo_codigo`, `re
 
 ### Após 3 falhas de validação
 
-1. Agente decide avisar o morador: `resumo` + `encerrar: true`, `codigo: null`.
+1. Agente decide avisar o morador: `summary` + `end: true`, `code: null`.
 2. Script notifica o morador, fala com o entregador para aguardar e encerra.
 
 ## Ajustes manuais

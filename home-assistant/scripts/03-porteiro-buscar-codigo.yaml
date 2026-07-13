@@ -7,7 +7,7 @@ alias: porteiro buscar codigo
 mode: single
 description: Busca summary (= código) na lista todo.entregas.
 fields:
-  codigo:
+  code:
     name: Código (summary)
     required: true
     selector:
@@ -15,29 +15,29 @@ fields:
 sequence:
   - variables:
       # ~ '' impede o HA de guardar 123 como int
-      codigo_busca: "{{ '' ~ (codigo | string | trim | upper | replace(' ', '')) }}"
+      search_code: "{{ '' ~ (code | string | trim | upper | replace(' ', '')) }}"
 
   - action: todo.get_items
     target:
       entity_id: todo.entregas
-    response_variable: lista_entregas
+    response_variable: delivery_list
 
   - variables:
-      match_codigo: >-
-        {%- for item in lista_entregas['todo.entregas']['items'] -%}
-          {%- if (item.summary | string | trim | upper) == (codigo_busca | string | trim | upper) -%}
+      match_code: >-
+        {%- for item in delivery_list['todo.entregas']['items'] -%}
+          {%- if (item.summary | string | trim | upper) == (search_code | string | trim | upper) -%}
             {{- '' ~ (item.summary | string | trim | upper) -}}
           {%- endif -%}
         {%- endfor -%}
-      match_descricao: >-
-        {%- for item in lista_entregas['todo.entregas']['items'] -%}
-          {%- if (item.summary | string | trim | upper) == (codigo_busca | string | trim | upper) -%}
+      match_description: >-
+        {%- for item in delivery_list['todo.entregas']['items'] -%}
+          {%- if (item.summary | string | trim | upper) == (search_code | string | trim | upper) -%}
             {{- item.description | default('') -}}
           {%- endif -%}
         {%- endfor -%}
       match_uid: >-
-        {%- for item in lista_entregas['todo.entregas']['items'] -%}
-          {%- if (item.summary | string | trim | upper) == (codigo_busca | string | trim | upper) -%}
+        {%- for item in delivery_list['todo.entregas']['items'] -%}
+          {%- if (item.summary | string | trim | upper) == (search_code | string | trim | upper) -%}
             {{- item.uid -}}
           {%- endif -%}
         {%- endfor -%}
@@ -55,15 +55,21 @@ sequence:
               status: completed
 
   - variables:
-      resultado:
-        encontrado: "{{ match_uid | default('') | string | trim != '' }}"
-        codigo: "{{ '' ~ (match_codigo | string | trim) }}"
-        descricao: "{{ match_descricao | trim }}"
-        palavra_chave: >-
-          {% set desc = match_descricao | trim %}
-          {% if 'palavra-chave:' in desc | lower %}
-            {{ desc.split('palavra-chave:')[-1].split('\n')[0] | trim }}
+      result:
+        found: "{{ match_uid | default('') | string | trim != '' }}"
+        code: "{{ '' ~ (match_code | string | trim) }}"
+        description: >-
+          {% set desc = match_description | trim %}
+          {% if 'description:' in desc | lower %}
+            {{ desc.split('description:')[-1].split('keyword:')[0].split('\n')[0] | trim }}
+          {% else %}
+            {{ desc }}
+          {% endif %}
+        keyword: >-
+          {% set desc = match_description | trim %}
+          {% if 'keyword:' in desc | lower %}
+            {{ desc.split('keyword:')[-1].split('\n')[0] | trim }}
           {% else %}{% endif %}
 
   - stop: done
-    response_variable: resultado
+    response_variable: result
