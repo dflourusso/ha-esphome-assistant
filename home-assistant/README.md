@@ -112,10 +112,12 @@ O agente responde sempre em JSON (`speech`, `type`, `code`, `code_method`, `summ
 2. Agente conta a falha no histórico e pede nova tentativa — por voz ou mostrando o pacote à câmera.
 3. Loop continua até validar ou chegar à 3ª falha.
 
-### Após 3 falhas de validação
+### Após 3 falhas de validação (ou entregador sem código)
 
-1. Agente decide avisar o morador: `summary` + `end: true`, `code: null`.
+1. Agente avisa o morador direto (sem perguntar se pode): `summary` + `end: true`, `code: null`.
+   Mesmo fluxo se o entregador disser que não tem / não sabe o código.
 2. Script notifica o morador, fala com o entregador para aguardar e encerra.
+3. Se o agente fizer uma pergunta em `speech`, deve usar `end: false` e aguardar a resposta.
 
 ## Ajustes manuais
 
