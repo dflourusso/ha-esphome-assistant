@@ -41,9 +41,10 @@ Em **Configurações → Scripts → Criar script → ⋮ → Editar em YAML**, 
 | 3 | [`scripts/03-porteiro-buscar-codigo.yaml`](scripts/03-porteiro-buscar-codigo.yaml) | `porteiro buscar codigo` → `script.porteiro_buscar_codigo` |
 | 4 | [`scripts/04-porteiro-notificar-morador.yaml`](scripts/04-porteiro-notificar-morador.yaml) | `porteiro notificar morador` → `script.porteiro_notificar_morador` |
 | 5 | [`scripts/05-porteiro-abrir-portao.yaml`](scripts/05-porteiro-abrir-portao.yaml) | `porteiro abrir portao` → `script.porteiro_abrir_portao` |
-| 6 | [`scripts/06-porteiro-atender.yaml`](scripts/06-porteiro-atender.yaml) | `porteiro atender` → `script.porteiro_atender` |
-| 7 | [`scripts/07-porteiro-ler-codigo-camera.yaml`](scripts/07-porteiro-ler-codigo-camera.yaml) | `porteiro ler codigo camera` → `script.porteiro_ler_codigo_camera` |
-| 8 | [`scripts/08-porteiro-confirmar-entrega.yaml`](scripts/08-porteiro-confirmar-entrega.yaml) | `porteiro confirmar entrega` → `script.porteiro_confirmar_entrega` |
+| 6 | [`scripts/09-porteiro-log.yaml`](scripts/09-porteiro-log.yaml) | `porteiro log` → `script.porteiro_log` |
+| 7 | [`scripts/06-porteiro-atender.yaml`](scripts/06-porteiro-atender.yaml) | `porteiro atender` → `script.porteiro_atender` |
+| 8 | [`scripts/07-porteiro-ler-codigo-camera.yaml`](scripts/07-porteiro-ler-codigo-camera.yaml) | `porteiro ler codigo camera` → `script.porteiro_ler_codigo_camera` |
+| 9 | [`scripts/08-porteiro-confirmar-entrega.yaml`](scripts/08-porteiro-confirmar-entrega.yaml) | `porteiro confirmar entrega` → `script.porteiro_confirmar_entrega` |
 
 Salve cada script antes de criar o próximo. Depois de salvar, confira em **Ferramentas de desenvolvedor → Estados** se o `entity_id` bate com a tabela.
 
@@ -125,3 +126,30 @@ O agente responde sempre em JSON (`speech`, `type`, `code`, `code_method`, `summ
 - **Agente:** deve existir como `conversation.porteiro` (cole o prompt de `prompt-porteiro.txt`, Assist desligado). Atualize o prompt sempre que alterar `prompt-porteiro.txt` neste repositório.
 - **Satellite:** ajuste `assist_satellite.garagem_dfltech_assistant_assist_satellite` em `06-porteiro-atender.yaml` se o entity_id do seu ESP for outro.
 - **Horário da saudação:** 05h–11h59 bom dia, 12h–17h59 boa tarde, resto boa noite (edite em `06-porteiro-atender.yaml`).
+
+## Log de conversas
+
+Cada atendimento vira **uma** persistent notification no HA (Sidebar → Notifications), atualizada a cada turno com a transcrição completa.
+
+- Sem File notify, sem `allowlist_external_dirs`.
+- Título: `Porteiro DD/MM/YYYY HH:MM`.
+- Conteúdo: visitante, porteiro, eventos de sistema (código/câmera) e motivo do fim.
+- Para limpar: dismiss a notificação. Não há arquivo que cresça sem limite; se acumular muitas, dismiss as antigas.
+
+Exemplo:
+
+```text
+**Início** — 13/07/2026 10:46:29
+_Bom dia. Em que posso ajudar?_
+
+- **Visitante:** Tenho uma entrega da Amazon.
+- **Porteiro:** Pode me informar o código de entrega?
+  - _tipo: entrega_
+
+- **Visitante:** O código é GH23...
+- **Porteiro:** ...
+---
+**Fim:** entrega concluída
+```
+
+A notificação usa Markdown (negrito, listas, itálico). O YAML do transcript usa `|-` (não `>-`) para preservar quebras de linha.

@@ -2,12 +2,15 @@
 # O alias vira entity_id: script.porteiro_atender
 alias: porteiro atender
 mode: restart
-description: Loop recepcionista com ask_question + conversation.process.
+description: Loop recepcionista com ask_question + conversation.process (+ persistent notification).
 variables:
   satellite: assist_satellite.garagem_dfltech_assistant_assist_satellite
   agent: conversation.porteiro
   max_turns: 15
   conversation_id: ""
+  transcript: ""
+  log_id: "porteiro_{{ now().strftime('%Y%m%d_%H%M%S') }}"
+  log_title: "Porteiro {{ now().strftime('%d/%m/%Y %H:%M') }}"
   saudacao: >-
     {% set h = now().hour %}
     {% if h >= 5 and h < 12 %}Bom dia{% elif h >= 12 and h < 18 %}Boa tarde{% else %}Boa noite{% endif %}
@@ -15,6 +18,19 @@ variables:
 sequence:
   # Só age se o ESP estiver com Assist ativo (ex. campainha). Se já idle, segue na hora.
   - action: script.porteiro_parar_conversa
+
+  - variables:
+      transcript: |-
+        {{ transcript }}
+        **Início** — {{ now().strftime('%d/%m/%Y %H:%M:%S') }}
+        _{{ next_question }}_
+
+  - action: script.porteiro_log
+    data:
+      notification_id: "{{ log_id }}"
+      title: "{{ log_title }}"
+      message: |-
+        {{ transcript | trim }}
 
   - repeat:
       count: "{{ max_turns | int }}"
@@ -103,6 +119,20 @@ sequence:
                             summary: ""
                             code_method: ""
 
+                - variables:
+                    transcript: |-
+                      {{ transcript }}
+                      - **Visitante:** {{ user_turn.sentence }}
+                      - **Porteiro:** {{ speech }}
+                      {% if type | trim != '' %}  - _tipo: {{ type }}{% if code | string | trim != '' %} · código: {{ code }}{% endif %}{% if code_method | trim != '' %} · {{ code_method }}{% endif %}_{% endif %}
+
+                - action: script.porteiro_log
+                  data:
+                    notification_id: "{{ log_id }}"
+                    title: "{{ log_title }}"
+                    message: |-
+                      {{ transcript | trim }}
+
                 - choose:
                             - conditions:
                                 - condition: template
@@ -119,6 +149,19 @@ sequence:
                                 - action: script.porteiro_aguardar_idle
 
                                 - action: script.porteiro_parar_conversa
+
+                                - variables:
+                                    transcript: |-
+                                      {{ transcript }}
+                                      ---
+                                      **Fim:** vendedor dispensado
+
+                                - action: script.porteiro_log
+                                  data:
+                                    notification_id: "{{ log_id }}"
+                                    title: "{{ log_title }}"
+                                    message: |-
+                                      {{ transcript | trim }}
 
                                 - stop: vendedor_encerrado
 
@@ -149,6 +192,19 @@ sequence:
                                 - action: script.porteiro_aguardar_idle
 
                                 - action: script.porteiro_parar_conversa
+
+                                - variables:
+                                    transcript: |-
+                                      {{ transcript }}
+                                      ---
+                                      **Fim:** {{ type }} — {{ summary }}
+
+                                - action: script.porteiro_log
+                                  data:
+                                    notification_id: "{{ log_id }}"
+                                    title: "{{ log_title }}"
+                                    message: |-
+                                      {{ transcript | trim }}
 
                                 - stop: atendimento_encerrado
 
@@ -187,6 +243,20 @@ sequence:
                                                 - condition: template
                                                   value_template: "{{ confirmation.completed | default(false) | bool }}"
                                               sequence:
+                                                - variables:
+                                                    transcript: |-
+                                                      {{ transcript }}
+                                                      - **Sistema:** código pela câmera validado (`{{ camera_reading.code }}`)
+                                                      ---
+                                                      **Fim:** entrega concluída
+
+                                                - action: script.porteiro_log
+                                                  data:
+                                                    notification_id: "{{ log_id }}"
+                                                    title: "{{ log_title }}"
+                                                    message: |-
+                                                      {{ transcript | trim }}
+
                                                 - stop: entrega_concluida
 
                                             - conditions: []
@@ -215,6 +285,19 @@ sequence:
                                                     summary: "{{ parsed.summary | default('') | string | trim }}"
                                                     end: "{{ parsed.end | default(false) | bool }}"
 
+                                                - variables:
+                                                    transcript: |-
+                                                      {{ transcript }}
+                                                      - **Sistema:** código pela câmera não encontrado (`{{ camera_reading.code }}`)
+                                                      - **Porteiro:** {{ speech }}
+
+                                                - action: script.porteiro_log
+                                                  data:
+                                                    notification_id: "{{ log_id }}"
+                                                    title: "{{ log_title }}"
+                                                    message: |-
+                                                      {{ transcript | trim }}
+
                                                 - choose:
                                                     - conditions:
                                                         - condition: template
@@ -237,6 +320,19 @@ sequence:
                                                         - action: script.porteiro_aguardar_idle
 
                                                         - action: script.porteiro_parar_conversa
+
+                                                        - variables:
+                                                            transcript: |-
+                                                              {{ transcript }}
+                                                              ---
+                                                              **Fim:** avisou morador — {{ summary }}
+
+                                                        - action: script.porteiro_log
+                                                          data:
+                                                            notification_id: "{{ log_id }}"
+                                                            title: "{{ log_title }}"
+                                                            message: |-
+                                                              {{ transcript | trim }}
 
                                                         - stop: entrega_aviso_morador
 
@@ -271,6 +367,19 @@ sequence:
                                             summary: "{{ parsed.summary | default('') | string | trim }}"
                                             end: "{{ parsed.end | default(false) | bool }}"
 
+                                        - variables:
+                                            transcript: |-
+                                              {{ transcript }}
+                                              - **Sistema:** câmera sem leitura
+                                              - **Porteiro:** {{ speech }}
+
+                                        - action: script.porteiro_log
+                                          data:
+                                            notification_id: "{{ log_id }}"
+                                            title: "{{ log_title }}"
+                                            message: |-
+                                              {{ transcript | trim }}
+
                                         - choose:
                                             - conditions:
                                                 - condition: template
@@ -293,6 +402,19 @@ sequence:
                                                 - action: script.porteiro_aguardar_idle
 
                                                 - action: script.porteiro_parar_conversa
+
+                                                - variables:
+                                                    transcript: |-
+                                                      {{ transcript }}
+                                                      ---
+                                                      **Fim:** avisou morador — {{ summary }}
+
+                                                - action: script.porteiro_log
+                                                  data:
+                                                    notification_id: "{{ log_id }}"
+                                                    title: "{{ log_title }}"
+                                                    message: |-
+                                                      {{ transcript | trim }}
 
                                                 - stop: entrega_aviso_morador
 
@@ -317,6 +439,20 @@ sequence:
                                         - condition: template
                                           value_template: "{{ confirmation.completed | default(false) | bool }}"
                                       sequence:
+                                        - variables:
+                                            transcript: |-
+                                              {{ transcript }}
+                                              - **Sistema:** código por voz validado (`{{ code }}`)
+                                              ---
+                                              **Fim:** entrega concluída
+
+                                        - action: script.porteiro_log
+                                          data:
+                                            notification_id: "{{ log_id }}"
+                                            title: "{{ log_title }}"
+                                            message: |-
+                                              {{ transcript | trim }}
+
                                         - stop: entrega_concluida
 
                                     - conditions: []
@@ -345,6 +481,19 @@ sequence:
                                             summary: "{{ parsed.summary | default('') | string | trim }}"
                                             end: "{{ parsed.end | default(false) | bool }}"
 
+                                        - variables:
+                                            transcript: |-
+                                              {{ transcript }}
+                                              - **Sistema:** código por voz não encontrado (`{{ code }}`)
+                                              - **Porteiro:** {{ speech }}
+
+                                        - action: script.porteiro_log
+                                          data:
+                                            notification_id: "{{ log_id }}"
+                                            title: "{{ log_title }}"
+                                            message: |-
+                                              {{ transcript | trim }}
+
                                         - choose:
                                             - conditions:
                                                 - condition: template
@@ -368,6 +517,19 @@ sequence:
 
                                                 - action: script.porteiro_parar_conversa
 
+                                                - variables:
+                                                    transcript: |-
+                                                      {{ transcript }}
+                                                      ---
+                                                      **Fim:** avisou morador — {{ summary }}
+
+                                                - action: script.porteiro_log
+                                                  data:
+                                                    notification_id: "{{ log_id }}"
+                                                    title: "{{ log_title }}"
+                                                    message: |-
+                                                      {{ transcript | trim }}
+
                                                 - stop: entrega_aviso_morador
 
                                             - conditions: []
@@ -390,6 +552,19 @@ sequence:
                                 - action: script.porteiro_aguardar_idle
 
                                 - action: script.porteiro_parar_conversa
+
+                                - variables:
+                                    transcript: |-
+                                      {{ transcript }}
+                                      ---
+                                      **Fim:** atendimento encerrado ({{ type }})
+
+                                - action: script.porteiro_log
+                                  data:
+                                    notification_id: "{{ log_id }}"
+                                    title: "{{ log_title }}"
+                                    message: |-
+                                      {{ transcript | trim }}
 
                                 - stop: end_attendance
 
@@ -415,6 +590,18 @@ sequence:
             - conditions: []
               sequence:
                 - variables:
+                    transcript: |-
+                      {{ transcript }}
+                      - **Sistema:** não ouvi resposta do visitante
+
+                - action: script.porteiro_log
+                  data:
+                    notification_id: "{{ log_id }}"
+                    title: "{{ log_title }}"
+                    message: |-
+                      {{ transcript | trim }}
+
+                - variables:
                     next_question: "Desculpe, não ouvi. Pode repetir?"
 
   - action: assist_satellite.ask_question
@@ -428,5 +615,18 @@ sequence:
     data:
       title: "Porteiro - fim do atendimento"
       message: "Atendimento na garagem encerrado (tempo limite)."
+
+  - variables:
+      transcript: |-
+        {{ transcript }}
+        ---
+        **Fim:** tempo limite
+
+  - action: script.porteiro_log
+    data:
+      notification_id: "{{ log_id }}"
+      title: "{{ log_title }}"
+      message: |-
+        {{ transcript | trim }}
 
   - action: script.porteiro_parar_conversa

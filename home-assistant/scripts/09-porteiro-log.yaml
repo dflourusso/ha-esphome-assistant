@@ -1,0 +1,31 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# O alias vira entity_id: script.porteiro_log
+# Cria/atualiza uma persistent notification com a transcrição do atendimento.
+alias: porteiro log
+mode: parallel
+max: 20
+description: Grava/atualiza a transcrição do atendimento em persistent notification.
+fields:
+  message:
+    name: Mensagem
+    required: true
+    selector:
+      text:
+        multiline: true
+  title:
+    name: Título
+    required: false
+    selector:
+      text:
+  notification_id:
+    name: ID da notificação
+    required: true
+    selector:
+      text:
+sequence:
+  - action: persistent_notification.create
+    data:
+      notification_id: "{{ notification_id }}"
+      title: "{{ title | default('Porteiro') }}"
+      message: "{{ message }}"
+    continue_on_error: true
