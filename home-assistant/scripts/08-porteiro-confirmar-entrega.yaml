@@ -59,6 +59,7 @@ sequence:
                 completed: true
                 found: true
                 code: "{{ search.code }}"
+                courier_message: "{{ courier_message | trim }}"
 
           - stop: done
             response_variable: result
@@ -70,6 +71,7 @@ sequence:
                 completed: false
                 found: false
                 code: "{{ code }}"
+                courier_message: ""
 
           - stop: done
             response_variable: result

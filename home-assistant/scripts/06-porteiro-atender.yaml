@@ -247,6 +247,7 @@ sequence:
                                                     transcript: |-
                                                       {{ transcript }}
                                                       - **Sistema:** código pela câmera validado (`{{ camera_reading.code }}`)
+                                                      - **Porteiro:** {{ confirmation.courier_message | default('') | trim }}
                                                       ---
                                                       **Fim:** entrega concluída
 
@@ -443,6 +444,7 @@ sequence:
                                             transcript: |-
                                               {{ transcript }}
                                               - **Sistema:** código por voz validado (`{{ code }}`)
+                                              - **Porteiro:** {{ confirmation.courier_message | default('') | trim }}
                                               ---
                                               **Fim:** entrega concluída
 
