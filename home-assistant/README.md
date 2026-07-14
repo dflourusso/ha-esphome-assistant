@@ -102,9 +102,10 @@ O agente responde sempre em JSON (`speech`, `type`, `code`, `code_method`, `summ
 1. Agente extrai o código da fala (`code_method: voz`, campo `code`) **ou** aciona a câmera (`code_method: camera`).
 2. **Voz:** `code` no JSON → `script.porteiro_confirmar_entrega`.
 3. **Câmera:** instruções ao entregador → espera → `script.porteiro_ler_codigo_camera` (AI Task) → confirma entrega com o código lido.
-4. `script.porteiro_buscar_codigo` compara com o **summary** de cada item em `todo.entregas`.
-5. Se achar: marca concluído, notifica morador, **avisa o entregador por voz** (com palavra-chave se houver) e abre o portão.
-6. Encerra o atendimento (`stop`) — não volta a pedir código no loop.
+4. `script.porteiro_buscar_codigo` compara com o **summary** de cada item em `todo.entregas` (pendentes e já concluídos).
+5. Se achar e o item ainda estiver pendente: marca concluído, notifica morador, **avisa o entregador por voz** (com palavra-chave se houver) e abre o portão.
+6. Se achar e o item **já estiver concluído**: informa o entregador que a entrega já foi realizada, **repete a palavra-chave** se houver, e **não** abre o portão.
+7. Encerra o atendimento (`stop`) — não volta a pedir código no loop.
 
 ### Código não encontrado (antes da 3ª falha)
 

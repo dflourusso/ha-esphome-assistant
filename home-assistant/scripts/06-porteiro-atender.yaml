@@ -249,7 +249,7 @@ sequence:
                                                       - **Sistema:** código pela câmera validado (`{{ camera_reading.code }}`)
                                                       - **Porteiro:** {{ confirmation.courier_message | default('') | trim }}
                                                       ---
-                                                      **Fim:** entrega concluída
+                                                      **Fim:** {% if confirmation.already_completed | default(false) | bool %}entrega já realizada{% else %}entrega concluída{% endif %}
 
                                                 - action: script.porteiro_log
                                                   data:
@@ -449,7 +449,7 @@ sequence:
                                               - **Sistema:** código por voz validado (`{{ code }}`)
                                               - **Porteiro:** {{ confirmation.courier_message | default('') | trim }}
                                               ---
-                                              **Fim:** entrega concluída
+                                              **Fim:** {% if confirmation.already_completed | default(false) | bool %}entrega já realizada{% else %}entrega concluída{% endif %}
 
                                         - action: script.porteiro_log
                                           data:

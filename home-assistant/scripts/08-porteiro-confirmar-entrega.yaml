@@ -20,7 +20,9 @@ sequence:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ search.found | bool }}"
+            value_template: >-
+              {{ search.found | bool
+                 and not (search.already_completed | default(false) | bool) }}
         sequence:
           - action: script.porteiro_notificar_morador
             data:
@@ -57,6 +59,44 @@ sequence:
           - variables:
               result:
                 completed: true
+                already_completed: false
+                found: true
+                code: "{{ search.code }}"
+                courier_message: "{{ courier_message | trim }}"
+
+          - stop: done
+            response_variable: result
+
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ search.found | bool
+                 and (search.already_completed | default(false) | bool) }}
+        sequence:
+          - variables:
+              courier_message: >-
+                {% if search.keyword | trim != '' %}
+                  Esta entrega já foi realizada. A palavra-chave é: {{ search.keyword }}.
+                {% else %}
+                  Esta entrega já foi realizada.
+                {% endif %}
+
+          - action: script.porteiro_aguardar_idle
+
+          - action: assist_satellite.announce
+            data:
+              entity_id: "{{ satellite }}"
+              message: "{{ courier_message }}"
+              preannounce: false
+
+          - action: script.porteiro_aguardar_idle
+
+          - action: script.porteiro_parar_conversa
+
+          - variables:
+              result:
+                completed: true
+                already_completed: true
                 found: true
                 code: "{{ search.code }}"
                 courier_message: "{{ courier_message | trim }}"
@@ -69,6 +109,7 @@ sequence:
           - variables:
               result:
                 completed: false
+                already_completed: false
                 found: false
                 code: "{{ code }}"
                 courier_message: ""

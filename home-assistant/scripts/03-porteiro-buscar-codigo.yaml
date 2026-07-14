@@ -20,6 +20,10 @@ sequence:
   - action: todo.get_items
     target:
       entity_id: todo.entregas
+    data:
+      status:
+        - needs_action
+        - completed
     response_variable: delivery_list
 
   - variables:
@@ -41,11 +45,19 @@ sequence:
             {{- item.uid -}}
           {%- endif -%}
         {%- endfor -%}
+      match_status: >-
+        {%- for item in delivery_list['todo.entregas']['items'] -%}
+          {%- if (item.summary | string | trim | upper) == (search_code | string | trim | upper) -%}
+            {{- item.status | default('') -}}
+          {%- endif -%}
+        {%- endfor -%}
 
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ match_uid | default('') | string | trim != '' }}"
+            value_template: >-
+              {{ match_uid | default('') | string | trim != ''
+                 and (match_status | default('') | string | trim) != 'completed' }}
         sequence:
           - action: todo.update_item
             target:
@@ -57,6 +69,9 @@ sequence:
   - variables:
       result:
         found: "{{ match_uid | default('') | string | trim != '' }}"
+        already_completed: >-
+          {{ match_uid | default('') | string | trim != ''
+             and (match_status | default('') | string | trim) == 'completed' }}
         code: "{{ '' ~ (match_code | string | trim) }}"
         description: >-
           {% set desc = match_description | trim %}
