@@ -267,11 +267,10 @@ sequence:
                                                     agent_id: "{{ agent }}"
                                                     text: >-
                                                       [Sistema: li o código {{ camera_reading.code }} pela câmera,
-                                                      mas não foi encontrado na lista. Nesta resposta é OBRIGATÓRIO
-                                                      sugerir soletrar o código (exemplo A de avião, B de bola) E
-                                                      oferecer tentar a câmera de novo (mostrar etiqueta/pacote).
-                                                      Não use code_method camera só por ofertar — só se o entregador
-                                                      aceitar.]
+                                                      mas não foi encontrado na lista. Em uma frase curta,
+                                                      ofereça soletrar (ex. A de avião) ou mostrar a etiqueta
+                                                      de novo na câmera. Só use code_method camera se o
+                                                      entregador aceitar.]
                                                     conversation_id: "{{ conversation_id }}"
                                                     language: pt-BR
                                                   response_variable: agent_response
@@ -352,10 +351,9 @@ sequence:
                                             agent_id: "{{ agent }}"
                                             text: >-
                                               [Sistema: não consegui ler o código pela câmera.
-                                              Nesta resposta é OBRIGATÓRIO sugerir soletrar o código
-                                              (exemplo A de avião, B de bola) E oferecer posicionar
-                                              o pacote de novo na câmera. Não use code_method camera
-                                              só por ofertar — só se o entregador aceitar.]
+                                              Em uma frase curta, ofereça soletrar (ex. A de avião)
+                                              ou posicionar o pacote de novo. Só use code_method
+                                              camera se o entregador aceitar.]
                                             conversation_id: "{{ conversation_id }}"
                                             language: pt-BR
                                           response_variable: agent_response
@@ -469,10 +467,9 @@ sequence:
                                             agent_id: "{{ agent }}"
                                             text: >-
                                               [Sistema: o código {{ code }} não foi encontrado.
-                                              Nesta resposta é OBRIGATÓRIO sugerir soletrar o código
-                                              (exemplo A de avião, B de bola) E oferecer ler pela câmera
-                                              (mostrar etiqueta/pacote). Não use code_method camera
-                                              só por ofertar — só se o entregador aceitar.]
+                                              Em uma frase curta, ofereça soletrar (ex. A de avião)
+                                              ou mostrar a etiqueta na câmera. Só use code_method
+                                              camera se o entregador aceitar.]
                                             conversation_id: "{{ conversation_id }}"
                                             language: pt-BR
                                           response_variable: agent_response
