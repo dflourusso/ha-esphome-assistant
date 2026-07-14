@@ -104,7 +104,9 @@ sequence:
                               {% set has_code = c != '' and c | lower not in ['null', 'none'] %}
                               {% set t = parsed.type | default('geral') %}
                               {% set met = parsed.code_method | default('') | string | trim | lower %}
-                              {{ false if t == 'entrega' and (has_code or met == 'camera') else (parsed.end | default(false) | bool) }}
+                              {{ false if (t == 'entrega' and (has_code or met == 'camera'))
+                                   or (t == 'morador' and has_code)
+                                 else (parsed.end | default(false) | bool) }}
                             summary: "{{ parsed.summary | default('') | string | trim }}"
                             code_method: "{{ parsed.code_method | default('') | string | trim | lower }}"
                     - conditions: []
@@ -171,6 +173,7 @@ sequence:
                                     {{ end
                                        and summary | trim != ''
                                        and (type == 'visita' or type == 'geral'
+                                            or type == 'morador'
                                             or (type == 'entrega' and code | string | trim == '')) }}
                               sequence:
                                 - action: script.porteiro_notificar_morador
@@ -178,6 +181,7 @@ sequence:
                                     title: >-
                                       {% if type == 'visita' %}Porteiro - visita
                                       {% elif type == 'entrega' %}Porteiro - delivery
+                                      {% elif type == 'morador' %}Porteiro - senha
                                       {% else %}Porteiro - garagem{% endif %}
                                     message: "{{ summary }}"
 
@@ -545,6 +549,123 @@ sequence:
 
                             - conditions:
                                 - condition: template
+                                  value_template: >-
+                                    {{ type == 'morador'
+                                       and code | string | trim != '' }}
+                              sequence:
+                                - action: script.porteiro_confirmar_morador
+                                  data:
+                                    code: "{{ '' ~ (code | string | trim | upper | replace(' ', '')) }}"
+                                  response_variable: confirmation
+
+                                - choose:
+                                    - conditions:
+                                        - condition: template
+                                          value_template: "{{ confirmation.completed | default(false) | bool }}"
+                                      sequence:
+                                        - variables:
+                                            transcript: |-
+                                              {{ transcript }}
+                                              - **Sistema:** senha morador validada (`{{ code }}`)
+                                              - **Porteiro:** {{ confirmation.resident_message | default('') | trim }}
+                                              ---
+                                              **Fim:** portão aberto — senha morador
+
+                                        - action: script.porteiro_log
+                                          data:
+                                            notification_id: "{{ log_id }}"
+                                            title: "{{ log_title }}"
+                                            message: |-
+                                              {{ transcript | trim }}
+
+                                        - stop: morador_portao_aberto
+
+                                    - conditions: []
+                                      sequence:
+                                        - action: conversation.process
+                                          data:
+                                            agent_id: "{{ agent }}"
+                                            text: >-
+                                              [Sistema: a senha {{ code }} não conferiu.
+                                              Em uma frase curta, peça para repetir ou soletrar
+                                              a senha de acesso (ex. A de avião). Não ofereça câmera.
+                                              Não diga se a senha está correta ou errada além do
+                                              que o sistema já informou.]
+                                            conversation_id: "{{ conversation_id }}"
+                                            language: pt-BR
+                                          response_variable: agent_response
+                                          continue_on_error: true
+
+                                        - variables:
+                                            parsed: >-
+                                              {% set raw = agent_response.response.speech.plain.speech | trim %}
+                                              {% if raw.startswith('{') %}
+                                                {{ raw | from_json }}
+                                              {% else %}
+                                                {{ {'speech': raw} }}
+                                              {% endif %}
+                                            speech: "{{ parsed.speech | default('Não confirmei essa senha. Pode repetir?') }}"
+                                            summary: "{{ parsed.summary | default('') | string | trim }}"
+                                            end: "{{ parsed.end | default(false) | bool }}"
+
+                                        - variables:
+                                            transcript: |-
+                                              {{ transcript }}
+                                              - **Sistema:** senha morador não conferiu (`{{ code }}`)
+                                              - **Porteiro:** {{ speech }}
+
+                                        - action: script.porteiro_log
+                                          data:
+                                            notification_id: "{{ log_id }}"
+                                            title: "{{ log_title }}"
+                                            message: |-
+                                              {{ transcript | trim }}
+
+                                        - choose:
+                                            - conditions:
+                                                - condition: template
+                                                  value_template: >-
+                                                    {{ end and summary | trim != '' }}
+                                              sequence:
+                                                - action: script.porteiro_notificar_morador
+                                                  data:
+                                                    title: Porteiro - senha
+                                                    message: "{{ summary }}"
+
+                                                - action: script.porteiro_aguardar_idle
+
+                                                - action: assist_satellite.announce
+                                                  data:
+                                                    entity_id: "{{ satellite }}"
+                                                    message: "{{ speech }}"
+                                                    preannounce: false
+
+                                                - action: script.porteiro_aguardar_idle
+
+                                                - action: script.porteiro_parar_conversa
+
+                                                - variables:
+                                                    transcript: |-
+                                                      {{ transcript }}
+                                                      ---
+                                                      **Fim:** avisou morador — {{ summary }}
+
+                                                - action: script.porteiro_log
+                                                  data:
+                                                    notification_id: "{{ log_id }}"
+                                                    title: "{{ log_title }}"
+                                                    message: |-
+                                                      {{ transcript | trim }}
+
+                                                - stop: morador_aviso_senha
+
+                                            - conditions: []
+                                              sequence:
+                                                - variables:
+                                                    next_question: "{{ speech }}"
+
+                            - conditions:
+                                - condition: template
                                   value_template: "{{ end }}"
                               sequence:
                                 - action: script.porteiro_aguardar_idle
@@ -576,7 +697,7 @@ sequence:
 
                             - conditions:
                                 - condition: template
-                                  value_template: "{{ type == 'entrega' }}"
+                                  value_template: "{{ type == 'entrega' or type == 'morador' }}"
                               sequence:
                                 - variables:
                                     next_question: "{{ speech }}"

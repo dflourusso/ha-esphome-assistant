@@ -1,0 +1,34 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# Alias: porteiro validar senha
+# ⚙️ ID da entidade OBRIGATÓRIO: porteiro_validar_senha (→ script.porteiro_validar_senha)
+#
+# Senha = FIXA + DD + inicial do dia + HH (ex.: FIXA14T10).
+# Parte fixa vem de input_text.senha_casa (não hardcode — repo público).
+# Mapa do dia (letra única, sem colisão): D S T Q N X B
+# (Domingo Segunda Terça Quarta Quinta Sexta Sábado)
+alias: porteiro validar senha
+mode: single
+description: Valida senha dinâmica do morador (fixa + dia + letra da semana + hora).
+fields:
+  code:
+    name: Senha falada
+    required: true
+    selector:
+      text:
+sequence:
+  - variables:
+      search_code: "{{ '' ~ (code | string | trim | upper | replace(' ', '')) }}"
+      expected: >-
+        {% set fixed = states('input_text.senha_casa') | string | trim | upper | replace(' ', '') %}
+        {% set dd = now().strftime('%d') %}
+        {% set hh = now().strftime('%H') %}
+        {% set letters = ['S', 'T', 'Q', 'N', 'X', 'B', 'D'] %}
+        {{ '' ~ fixed ~ dd ~ letters[now().weekday()] ~ hh }}
+
+  - variables:
+      result:
+        ok: "{{ (search_code | string) == (expected | string) }}"
+        code: "{{ '' ~ (search_code | string) }}"
+
+  - stop: done
+    response_variable: result

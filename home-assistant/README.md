@@ -9,8 +9,9 @@ Automação de recepção na garagem com **DFLTech Assistant** (voz) e agente Op
 1. ESPHome **dfltech-assistant** na garagem (satellite de voz).
 2. Agente de conversa **Porteiro** com **Assist desligado** — cole o texto de [`prompt-porteiro.txt`](prompt-porteiro.txt).
 3. Lista **Entregas** (`todo.entregas`): `summary` = código; na descrição use `description:` e `keyword:`.
-4. Pipeline no satellite: STT + TTS (para `assist_satellite.ask_question`).
-5. **AI Task** configurado (Settings → AI) — usado pelo script 07 para leitura pela câmera.
+4. Helper **`input_text.senha_casa`** — parte fixa da senha do morador (criar em Configurações → Dispositivos e serviços → Ajudantes).
+5. Pipeline no satellite: STT + TTS (para `assist_satellite.ask_question`).
+6. **AI Task** configurado (Settings → AI) — usado pelo script 07 para leitura pela câmera.
 
 ## Entidades usadas
 
@@ -20,6 +21,7 @@ Automação de recepção na garagem com **DFLTech Assistant** (voz) e agente Op
 | `button.garagem_dfltech_assistant_start_conversation` | Parar conversa |
 | `conversation.porteiro` | Agente OpenAI (Assist desligado) |
 | `todo.entregas` | Códigos de entrega |
+| `input_text.senha_casa` | Parte fixa da senha do morador (script 10) |
 | `camera.campainha_generic` | Câmera da portaria (script 07) |
 | `switch.portao_garagem` | **Placeholder** — troque no script 05 |
 | `notify.mobile_app_SEU_TELEFONE` | **Placeholder** — troque no script 04 |
@@ -42,9 +44,11 @@ Em **Configurações → Scripts → Criar script → ⋮ → Editar em YAML**, 
 | 4 | [`scripts/04-porteiro-notificar-morador.yaml`](scripts/04-porteiro-notificar-morador.yaml) | `porteiro notificar morador` → `script.porteiro_notificar_morador` |
 | 5 | [`scripts/05-porteiro-abrir-portao.yaml`](scripts/05-porteiro-abrir-portao.yaml) | `porteiro abrir portao` → `script.porteiro_abrir_portao` |
 | 6 | [`scripts/09-porteiro-log.yaml`](scripts/09-porteiro-log.yaml) | `porteiro log` → `script.porteiro_log` |
-| 7 | [`scripts/06-porteiro-atender.yaml`](scripts/06-porteiro-atender.yaml) | `porteiro atender` → `script.porteiro_atender` |
-| 8 | [`scripts/07-porteiro-ler-codigo-camera.yaml`](scripts/07-porteiro-ler-codigo-camera.yaml) | `porteiro ler codigo camera` → `script.porteiro_ler_codigo_camera` |
-| 9 | [`scripts/08-porteiro-confirmar-entrega.yaml`](scripts/08-porteiro-confirmar-entrega.yaml) | `porteiro confirmar entrega` → `script.porteiro_confirmar_entrega` |
+| 7 | [`scripts/10-porteiro-validar-senha.yaml`](scripts/10-porteiro-validar-senha.yaml) | `porteiro validar senha` → `script.porteiro_validar_senha` |
+| 8 | [`scripts/11-porteiro-confirmar-morador.yaml`](scripts/11-porteiro-confirmar-morador.yaml) | `porteiro confirmar morador` → `script.porteiro_confirmar_morador` |
+| 9 | [`scripts/06-porteiro-atender.yaml`](scripts/06-porteiro-atender.yaml) | `porteiro atender` → `script.porteiro_atender` |
+| 10 | [`scripts/07-porteiro-ler-codigo-camera.yaml`](scripts/07-porteiro-ler-codigo-camera.yaml) | `porteiro ler codigo camera` → `script.porteiro_ler_codigo_camera` |
+| 11 | [`scripts/08-porteiro-confirmar-entrega.yaml`](scripts/08-porteiro-confirmar-entrega.yaml) | `porteiro confirmar entrega` → `script.porteiro_confirmar_entrega` |
 
 Salve cada script antes de criar o próximo. Depois de salvar, confira em **Ferramentas de desenvolvedor → Estados** se o `entity_id` bate com a tabela.
 
@@ -78,10 +82,10 @@ Ao iniciar, o script fala **Bom dia / Boa tarde / Boa noite** (conforme o horár
 
 | Responsabilidade | Quem |
 |------------------|------|
-| Conversa natural, classificar intenção, extrair código da fala | Agente **Porteiro** (`prompt-porteiro.txt`) |
-| Contar tentativas falhas de código (via histórico `conversation_id`) | Agente **Porteiro** |
-| Decidir voz vs câmera, quando avisar o morador após 3 falhas | Agente **Porteiro** |
-| Validar código na lista, ler câmera, abrir portão, notificar push | Scripts HA |
+| Conversa natural, classificar intenção, extrair código/senha da fala | Agente **Porteiro** (`prompt-porteiro.txt`) |
+| Contar tentativas falhas de código/senha (via histórico `conversation_id`) | Agente **Porteiro** |
+| Decidir voz vs câmera (entrega), quando avisar após 3 falhas | Agente **Porteiro** |
+| Validar código na lista, senha dinâmica, ler câmera, abrir portão, notificar push | Scripts HA |
 
 O agente responde sempre em JSON (`speech`, `type`, `code`, `code_method`, `summary`, `end`). O script 06 interpreta o JSON e executa ações — mensagens `[Sistema: ...]` informam falhas de validação sem lógica de contagem no YAML.
 
@@ -91,9 +95,36 @@ O agente responde sempre em JSON (`speech`, `type`, `code`, `code_method`, `summ
 |------|----------------|
 | **visita** | Conversa natural; coleta nome, quem visita e motivo; `summary` + `end: true` → notifica morador |
 | **geral** | Prestador de serviço, técnico, etc.; avisa o morador como visita (não dispensa) |
+| **morador** | Senha de acesso dinâmica (voz); valida no script e abre o portão |
 | **entrega — encomenda** | Pede código de entrega/rastreio (voz ou câmera); valida em `todo.entregas` |
 | **entrega — comida** | iFood, Rappi, etc.; **sem código**; `summary` + `end: true` → notifica morador |
 | **vendedor** | Propaganda/ambulante; dispensa educadamente **sem** avisar morador |
+
+## Fluxo de senha do morador
+
+Fórmula da senha: **FIXA + DD + letra do dia + HH** (maiúsculas, sem espaços).
+
+Exemplo com fixa `ABCD`, dia 14, terça, 10h → `ABCD14T10`.
+
+Mapa da letra do dia (sem colisão):
+
+| Dia | Letra |
+|-----|-------|
+| Domingo | D |
+| Segunda | S |
+| Terça | T |
+| Quarta | Q |
+| Quinta | N |
+| Sexta | X |
+| Sábado | B |
+
+1. Agente classifica `type: morador`, pede a **senha de acesso** e preenche `code` + `code_method: voz`.
+2. `script.porteiro_confirmar_morador` → `script.porteiro_validar_senha` calcula a senha esperada com `now()` do HA e compara.
+3. Se conferir: notifica push, anuncia por voz e abre o portão (`script.porteiro_abrir_portao`).
+4. Se não conferir: `[Sistema: a senha … não conferiu]` volta ao agente (repetir/soletrar; **sem** câmera).
+5. Na 3ª falha o agente encerra com `summary` (alerta de segurança) + `end: true`.
+
+**Parte fixa:** valor de `input_text.senha_casa` (não fica no repositório).
 
 ## Fluxo de entrega (encomenda com código)
 
@@ -123,13 +154,14 @@ O agente responde sempre em JSON (`speech`, `type`, `code`, `code_method`, `summ
 ## Ajustes manuais
 
 - **Portão:** edite `switch.portao_garagem` em `05-porteiro-abrir-portao.yaml` (ou no script já salvo no HA).
+- **Senha fixa do morador:** defina o valor em `input_text.senha_casa` (Ajudante no HA; entity_id exato).
 - **Câmera:** `camera.campainha_generic` em `07-porteiro-ler-codigo-camera.yaml`.
 - **AI Task:** configure em Settings → AI (sub-entry AI Task no OpenAI/Google/etc.). O script 07 usa `ai_task.generate_data` sem `entity_id` fixo (usa o preferido do HA).
 - **Notificação:** edite `notify.mobile_app_SEU_TELEFONE` no script 04.
 - **Agente:** deve existir como `conversation.porteiro` (cole o prompt de `prompt-porteiro.txt`, Assist desligado). Atualize o prompt sempre que alterar `prompt-porteiro.txt` neste repositório.
 - **Satellite:** ajuste `assist_satellite.garagem_dfltech_assistant_assist_satellite` em `06-porteiro-atender.yaml` se o entity_id do seu ESP for outro.
 - **Horário da saudação:** 05h–11h59 bom dia, 12h–17h59 boa tarde, resto boa noite (edite em `06-porteiro-atender.yaml`).
-
+- **Timezone:** a senha usa `now()` do Home Assistant — confira o fuso em Configurações → Geral.
 ## Log de conversas
 
 Cada atendimento vira **uma** persistent notification no HA (Sidebar → Notifications), atualizada a cada turno com a transcrição completa.

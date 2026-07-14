@@ -1,0 +1,67 @@
+# UI: Scripts → Criar script → ⋮ → Editar em YAML — cole abaixo (sem linha id:)
+# ⚙️ ID da entidade OBRIGATÓRIO: porteiro_confirmar_morador (→ script.porteiro_confirmar_morador)
+alias: porteiro confirmar morador
+mode: single
+description: Valida senha do morador, notifica e abre o portão se conferir.
+fields:
+  code:
+    name: Senha falada
+    required: true
+    selector:
+      text:
+variables:
+  satellite: assist_satellite.garagem_dfltech_assistant_assist_satellite
+sequence:
+  - action: script.porteiro_validar_senha
+    data:
+      code: "{{ '' ~ (code | string | trim | upper | replace(' ', '')) }}"
+    response_variable: validation
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ validation.ok | default(false) | bool }}"
+        sequence:
+          - action: script.porteiro_notificar_morador
+            data:
+              title: "Porteiro - portão aberto"
+              message: "Portão aberto — senha morador."
+
+          - variables:
+              resident_message: >-
+                Senha confirmada. Abrindo o portão agora;
+                ele fecha automaticamente em trinta segundos.
+
+          - action: script.porteiro_aguardar_idle
+
+          - action: assist_satellite.announce
+            data:
+              entity_id: "{{ satellite }}"
+              message: "{{ resident_message }}"
+              preannounce: false
+
+          - action: script.porteiro_aguardar_idle
+
+          - action: script.porteiro_abrir_portao
+
+          - action: script.porteiro_parar_conversa
+
+          - variables:
+              result:
+                completed: true
+                code: "{{ validation.code }}"
+                resident_message: "{{ resident_message | trim }}"
+
+          - stop: done
+            response_variable: result
+
+      - conditions: []
+        sequence:
+          - variables:
+              result:
+                completed: false
+                code: "{{ '' ~ (code | string | trim | upper | replace(' ', '')) }}"
+                resident_message: ""
+
+          - stop: done
+            response_variable: result
