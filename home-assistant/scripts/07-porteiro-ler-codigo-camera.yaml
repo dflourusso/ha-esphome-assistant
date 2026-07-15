@@ -16,7 +16,11 @@ sequence:
       task_name: porteiro ler codigo pacote
       instructions: >-
         Esta imagem mostra um pacote na portaria da garagem.
-        Leia o código de entrega ou código de barras impresso na etiqueta.
+        Na etiqueta, o código de entrega está imediatamente abaixo do código de barras
+        (linha de barras 1D). Leia esse número/código alfanumérico; se o texto estiver
+        ilegível, tente ler o próprio código de barras.
+        Ignore QR codes e qualquer outro número ou texto que não esteja imediatamente
+        abaixo do código de barras.
         Retorne apenas letras e números do código, em MAIÚSCULAS, sem espaços.
         Atenção: não confunda o dígito 5 com a letra S, o dígito 0 com a letra O,
         o dígito 1 com a letra I, nem o dígito 8 com a letra B.
